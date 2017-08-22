@@ -41,14 +41,6 @@ import org.sleuthkit.autopsy.coreutils.Logger;
         persistenceType = TopComponent.PERSISTENCE_NEVER
 )
 @TopComponent.Registration(mode = "dashboard", openAtStartup = false)
-@ActionID(category = "Window", id = "org.sleuthkit.autopsy.experimental.autoingest.AutoIngestDashboardTopComponent")
-@ActionReference(path = "Menu/Window" /*
- * , position = 333
- */)
-@TopComponent.OpenActionRegistration(
-        displayName = "#CTL_AutoIngestDashboardAction",
-        preferredID = "AutoIngestDashboardTopComponent"
-)
 @Messages({
     "CTL_AutoIngestDashboardAction=Auto Ingest Dashboard",
     "CTL_AutoIngestDashboardTopComponent=Auto Ingest Dashboard",

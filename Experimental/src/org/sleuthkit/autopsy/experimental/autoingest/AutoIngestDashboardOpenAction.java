@@ -25,7 +25,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import org.openide.awt.ActionID;
 import org.openide.awt.ActionReference;
-import org.openide.awt.ActionReferences;
 import org.openide.awt.ActionRegistration;
 import org.openide.util.HelpCtx;
 import org.openide.util.NbBundle.Messages;
@@ -38,10 +37,7 @@ import static org.sleuthkit.autopsy.core.UserPreferences.SelectedMode.REVIEW;
 import org.sleuthkit.autopsy.coreutils.Logger;
 
 @ActionID(category = "Tools", id = "org.sleuthkit.autopsy.experimental.autoingest.AutoIngestDashboardOpenAction")
-@ActionReferences(value = {
-    @ActionReference(path = "Menu/Tools", position = 104),
-    @ActionReference(path = "Toolbars/Case", position = 104)
-})
+@ActionReference(path = "Menu/Tools", position = 104)
 @ActionRegistration(displayName = "#CTL_AutoIngestDashboardOpenAction", lazy = false)
 @Messages({"CTL_AutoIngestDashboardOpenAction=Auto Ingest Dashboard"})
 public final class AutoIngestDashboardOpenAction extends CallableSystemAction implements Presenter.Toolbar {
