@@ -21,10 +21,16 @@ package org.sleuthkit.autopsy.experimental.autoingest;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Observable;
 import java.util.Set;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -60,8 +66,11 @@ public final class AutoIngestMonitor extends Observable implements PropertyChang
     private CoordinationService coordinationService;
     private final ScheduledThreadPoolExecutor coordSvcQueryExecutor;
     private final Object jobsLock;
+    private final Object metricsLock;
     @GuardedBy("jobsLock")
     private JobsSnapshot jobsSnapshot;
+    @GuardedBy("metricsLock")
+    private MetricsSnapshot metricsSnapshot;
 
     /**
      * Constructs an auto ingest monitor responsible for monitoring and
@@ -72,6 +81,8 @@ public final class AutoIngestMonitor extends Observable implements PropertyChang
         coordSvcQueryExecutor = new ScheduledThreadPoolExecutor(NUM_COORD_SVC_QUERY_THREADS, new ThreadFactoryBuilder().setNameFormat(COORD_SVC_QUERY_THREAD_NAME).build());
         jobsLock = new Object();
         jobsSnapshot = new JobsSnapshot();
+        metricsLock = new Object();
+        metricsSnapshot = new MetricsSnapshot();
     }
 
     /**
@@ -212,6 +223,18 @@ public final class AutoIngestMonitor extends Observable implements PropertyChang
     }
 
     /**
+     * Gets the auto ingest monitor's current metrics snapshot for the completed
+     * jobs list for an auto ingest cluster.
+     *
+     * @return The snapshot.
+     */
+    MetricsSnapshot getMetricsSnapshot() {
+        synchronized (metricsLock) {
+            return metricsSnapshot;
+        }
+    }
+
+    /**
      * Makes the auto ingest monitor's refresh its current snapshot of the
      * pending jobs queue, running jobs list, and completed jobs list for an
      * auto ingest cluster.
@@ -234,6 +257,7 @@ public final class AutoIngestMonitor extends Observable implements PropertyChang
     private JobsSnapshot queryCoordinationService() {
         try {
             JobsSnapshot newJobsSnapshot = new JobsSnapshot();
+            MetricsSnapshot newMetricsSnapshot = new MetricsSnapshot();
             List<String> nodeList = coordinationService.getNodeList(CoordinationService.CategoryNode.MANIFESTS);
             for (String node : nodeList) {
                 try {
@@ -256,6 +280,7 @@ public final class AutoIngestMonitor extends Observable implements PropertyChang
                             break;
                         case COMPLETED:
                             newJobsSnapshot.addOrReplaceCompletedJob(job);
+                            newMetricsSnapshot.incrementCount(job.getCompletedDate());
                             break;
                         case DELETED:
                             break;
@@ -268,6 +293,9 @@ public final class AutoIngestMonitor extends Observable implements PropertyChang
                 } catch (AutoIngestJobNodeData.InvalidDataException ex) {
                     LOGGER.log(Level.SEVERE, String.format("Unable to use node data for '%s'", node), ex);
                 }
+            }
+            synchronized (metricsLock) {
+                metricsSnapshot = newMetricsSnapshot;
             }
             return newJobsSnapshot;
         } catch (CoordinationServiceException ex) {
@@ -520,6 +548,63 @@ public final class AutoIngestMonitor extends Observable implements PropertyChang
             jobSet.add(job);
         }
 
+    }
+    
+    /**
+     * A collection of completed job counts for each week for an auto ingest
+     * cluster.
+     */
+    static final class MetricsSnapshot {
+        private final Map<Integer, Integer> weeklyCompletedJobCountsMap = new HashMap<>();
+        
+        /**
+         * Get the weekly completed job counts.
+         * 
+         * @return A map of the weekly completed job counts.
+         */
+        Map<Integer, Integer> getWeeklyCompletedJobCountsMap() {
+            return new HashMap<>(weeklyCompletedJobCountsMap);
+        }
+        
+        /**
+         * Increase the count for the specified date's week.
+         * 
+         * @param date The date whose week will increase.
+         */
+        private void incrementCount(Date date) {
+            Integer week = getWeek(date);
+            Integer count = weeklyCompletedJobCountsMap.get(week);
+            weeklyCompletedJobCountsMap.put(week, (count == null ? 1 : count + 1));
+        }
+        
+        /**
+         * Calculate the week based on the date provided. This method assumes
+         * Sunday to be the first day of each week.
+         * 
+         * @param date The date from which the week is to be determined.
+         * @return The week as an integer.
+         */
+        private int getWeek(Date date) {
+            /*
+             * Convert Date to LocalDate for processing.
+             */
+            Instant instant = date.toInstant();
+            LocalDate localDate = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+            
+            /*
+             * Convert Date to LocalDate and subtract the day of the week from
+             * the input date. If Sunday, convert the integer value to '0'
+             * before subtracting.
+             */
+            LocalDate newDate = localDate.minusDays(localDate.getDayOfWeek().getValue() % 7);
+            
+            /*
+             * The Unix epoch starts on a Thursday, so we must add four to
+             * account for the shortened first week.
+             */
+            return (int)((newDate.toEpochDay() + 4) / 7);
+        }
+        
     }
     
     /**

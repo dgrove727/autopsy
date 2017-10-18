@@ -664,6 +664,7 @@ public final class AutoIngestDashboard extends JPanel implements Observer {
         tbServicesStatusMessage = new javax.swing.JTextField();
         prioritizeJobButton = new javax.swing.JButton();
         prioritizeCaseButton = new javax.swing.JButton();
+        clusterMetricsButton = new javax.swing.JButton();
 
         org.openide.awt.Mnemonics.setLocalizedText(jButton1, org.openide.util.NbBundle.getMessage(AutoIngestDashboard.class, "AutoIngestDashboard.jButton1.text")); // NOI18N
 
@@ -764,6 +765,13 @@ public final class AutoIngestDashboard extends JPanel implements Observer {
             }
         });
 
+        org.openide.awt.Mnemonics.setLocalizedText(clusterMetricsButton, org.openide.util.NbBundle.getMessage(AutoIngestDashboard.class, "AutoIngestDashboard.clusterMetricsButton.text")); // NOI18N
+        clusterMetricsButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                clusterMetricsButtonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -772,22 +780,25 @@ public final class AutoIngestDashboard extends JPanel implements Observer {
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(pendingScrollPane)
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(lbPending)
-                            .addComponent(lbCompleted)
-                            .addComponent(lbRunning)
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(lbServicesStatus)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(tbServicesStatusMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 861, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(refreshButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(prioritizeJobButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(prioritizeCaseButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(layout.createSequentialGroup()
+                            .addComponent(refreshButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addComponent(prioritizeJobButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addComponent(prioritizeCaseButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(clusterMetricsButton))
+                        .addGroup(layout.createSequentialGroup()
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addComponent(lbPending)
+                                .addComponent(lbCompleted)
+                                .addComponent(lbRunning)
+                                .addGroup(layout.createSequentialGroup()
+                                    .addComponent(lbServicesStatus)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                    .addComponent(tbServicesStatusMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 861, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                            .addGap(0, 0, Short.MAX_VALUE)))
                     .addComponent(runningScrollPane, javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(completedScrollPane, javax.swing.GroupLayout.Alignment.LEADING))
                 .addContainerGap())
@@ -815,7 +826,8 @@ public final class AutoIngestDashboard extends JPanel implements Observer {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(refreshButton)
                     .addComponent(prioritizeJobButton)
-                    .addComponent(prioritizeCaseButton))
+                    .addComponent(prioritizeCaseButton)
+                    .addComponent(clusterMetricsButton))
                 .addContainerGap())
         );
     }// </editor-fold>//GEN-END:initComponents
@@ -874,7 +886,12 @@ public final class AutoIngestDashboard extends JPanel implements Observer {
         }
     }//GEN-LAST:event_prioritizeCaseButtonActionPerformed
 
+    private void clusterMetricsButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clusterMetricsButtonActionPerformed
+        AutoIngestMetricsDialog dialog = new AutoIngestMetricsDialog(this.getTopLevelAncestor(), autoIngestMonitor.getMetricsSnapshot());
+    }//GEN-LAST:event_clusterMetricsButtonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton clusterMetricsButton;
     private javax.swing.JScrollPane completedScrollPane;
     private javax.swing.JTable completedTable;
     private javax.swing.JButton jButton1;
