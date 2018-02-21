@@ -94,11 +94,7 @@ import org.sleuthkit.autopsy.ingest.IngestProgressSnapshotDialog;
     "AutoIngestControlPanel.bnExit.toolTipText=Exit Application",
     "AutoIngestControlPanel.bnOptions.toolTipText=Display options panel. All processing must be paused to open the options panel.",
     "AutoIngestControlPanel.bnShowProgress.toolTipText=Show the progress of the currently running Job. This functionality is only available for jobs running on current AIM node.",
-    "AutoIngestControlPanel.bnPrioritizeCase.toolTipText=Move all images associated with a case to top of Pending queue.",
     "AutoIngestControlPanel.bnShowCaseLog.toolTipText=Display case log file for selected case",
-    "AutoIngestControlPanel.bnPrioritizeJob.toolTipText=Move this folder to the top of the Pending queue.",
-    "AutoIngestControlPanel.bnPrioritizeJob.actionCommand=<AutoIngestControlPanel.bnPrioritizeJob.text>",
-    "AutoIngestControlPanel.bnPrioritizeFolder.label=<AutoIngestControlPanel.bnPrioritizeJob.text>",
     "AutoIngestControlPanel.Cancelling=Cancelling...",
     "AutoIngestControlPanel.AutoIngestStartupWarning.Title=Automated Ingest Warning",
     "AutoIngestControlPanel.AutoIngestStartupWarning.Message=Failed to establish remote communications with other automated ingest nodes.\nAuto ingest dashboard will only be able to display local ingest job events.\nPlease verify Multi-User settings (Options->Multi-User). See application log for details.",
@@ -251,7 +247,12 @@ public final class AutoIngestControlPanel extends JPanel implements Observer {
 
         completedTableModel = new AutoIngestTableModel(JobsTableModelColumns.headers, 0);
 
-        initComponents(); // Generated code.
+        try {
+            initComponents(); // Generated code.
+        } catch (Throwable ex) {    //DLG:
+            System.out.println();
+            return;
+        }
         setServicesStatusMessage();
         initPendingJobsTable();
         initRunningJobsTable();
@@ -631,6 +632,8 @@ public final class AutoIngestControlPanel extends JPanel implements Observer {
     private void enablePendingTableButtons(Boolean enable) {
         bnPrioritizeCase.setEnabled(enable);
         bnPrioritizeJob.setEnabled(enable);
+        bnDeprioritizeCase.setEnabled(enable);
+        bnDeprioritizeJob.setEnabled(enable);
     }
 
     /**
