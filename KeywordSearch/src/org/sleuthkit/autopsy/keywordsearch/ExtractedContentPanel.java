@@ -174,17 +174,16 @@ class ExtractedContentPanel extends javax.swing.JPanel {
             selectAllMenuItem.setText(org.openide.util.NbBundle.getMessage(ExtractedContentPanel.class, "ExtractedContentPanel.selectAllMenuItem.text")); // NOI18N
             rightClickMenu.add(selectAllMenuItem);
 
-            setPreferredSize(new java.awt.Dimension(717, 58));
+            setPreferredSize(new java.awt.Dimension(100, 58));
 
             jScrollPane1.setBackground(new java.awt.Color(255, 255, 255));
-            jScrollPane1.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-            jScrollPane1.setPreferredSize(new java.awt.Dimension(640, 29));
+            jScrollPane1.setPreferredSize(new java.awt.Dimension(100, 29));
 
             extractedTextPane.setEditable(false);
             extractedTextPane.setAutoscrolls(false);
             extractedTextPane.setInheritsPopupMenu(true);
             extractedTextPane.setMaximumSize(new java.awt.Dimension(2000, 2000));
-            extractedTextPane.setPreferredSize(new java.awt.Dimension(640, 29));
+            extractedTextPane.setPreferredSize(new java.awt.Dimension(100, 29));
             jScrollPane1.setViewportView(extractedTextPane);
 
             sourceComboBox.setModel(new javax.swing.DefaultComboBoxModel<org.sleuthkit.autopsy.keywordsearch.IndexedText>());
@@ -335,7 +334,7 @@ class ExtractedContentPanel extends javax.swing.JPanel {
                         .addComponent(hitTotalLabel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(hitButtonsLabel))
                     .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 126, Short.MAX_VALUE))
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 23, Short.MAX_VALUE))
             );
 
             layout.linkSize(javax.swing.SwingConstants.VERTICAL, new java.awt.Component[] {hitButtonsLabel, hitCountLabel, hitLabel, hitNextButton, hitOfLabel, hitPreviousButton, hitTotalLabel, jLabel1, jSeparator1, jSeparator2, pageButtonsLabel, pageCurLabel, pageNextButton, pageOfLabel, pagePreviousButton, pageTotalLabel, pagesLabel, sourceComboBox});

@@ -125,15 +125,15 @@ public class DataContentViewerString extends javax.swing.JPanel implements DataC
         rightClickMenu.add(selectAllMenuItem);
 
         setMinimumSize(new java.awt.Dimension(5, 5));
+        setPreferredSize(new java.awt.Dimension(100, 58));
 
-        jPanel1.setPreferredSize(new java.awt.Dimension(640, 424));
+        jPanel1.setPreferredSize(new java.awt.Dimension(100, 424));
 
-        jScrollPane1.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        jScrollPane1.setPreferredSize(new java.awt.Dimension(640, 402));
+        jScrollPane1.setPreferredSize(new java.awt.Dimension(100, 402));
 
         outputViewPane.setEditable(false);
         outputViewPane.setFont(new java.awt.Font("Courier New", 0, 11)); // NOI18N
-        outputViewPane.setPreferredSize(new java.awt.Dimension(638, 400));
+        outputViewPane.setPreferredSize(new java.awt.Dimension(100, 400));
         jScrollPane1.setViewportView(outputViewPane);
 
         totalPageLabel.setText(org.openide.util.NbBundle.getMessage(DataContentViewerString.class, "DataContentViewerString.totalPageLabel.text_1")); // NOI18N

@@ -207,7 +207,6 @@
       <SubComponents>
         <Container class="javax.swing.JScrollPane" name="headersScrollPane">
           <Properties>
-            <Property name="horizontalScrollBarPolicy" type="int" value="31"/>
             <Property name="verticalScrollBarPolicy" type="int" value="22"/>
           </Properties>
           <Constraints>
@@ -235,7 +234,6 @@
         </Container>
         <Container class="javax.swing.JScrollPane" name="textbodyScrollPane">
           <Properties>
-            <Property name="horizontalScrollBarPolicy" type="int" value="31"/>
             <Property name="verticalScrollBarPolicy" type="int" value="22"/>
           </Properties>
           <Constraints>

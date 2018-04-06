@@ -238,7 +238,6 @@ public class MessageContentViewer extends javax.swing.JPanel implements DataCont
                 .addGap(5, 5, 5))
         );
 
-        headersScrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         headersScrollPane.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 
         headersTextArea.setEditable(false);
@@ -250,7 +249,6 @@ public class MessageContentViewer extends javax.swing.JPanel implements DataCont
 
         msgbodyTabbedPane.addTab(org.openide.util.NbBundle.getMessage(MessageContentViewer.class, "MessageContentViewer.headersScrollPane.TabConstraints.tabTitle"), headersScrollPane); // NOI18N
 
-        textbodyScrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         textbodyScrollPane.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 
         textbodyTextArea.setEditable(false);

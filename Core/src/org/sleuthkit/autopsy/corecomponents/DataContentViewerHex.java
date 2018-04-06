@@ -117,9 +117,9 @@ public class DataContentViewerHex extends javax.swing.JPanel implements DataCont
         selectAllMenuItem.setText(org.openide.util.NbBundle.getMessage(DataContentViewerHex.class, "DataContentViewerHex.selectAllMenuItem.text")); // NOI18N
         rightClickMenu.add(selectAllMenuItem);
 
-        setPreferredSize(new java.awt.Dimension(610, 58));
+        setPreferredSize(new java.awt.Dimension(100, 58));
 
-        hexViewerPanel.setPreferredSize(new java.awt.Dimension(610, 23));
+        hexViewerPanel.setPreferredSize(new java.awt.Dimension(100, 23));
 
         totalPageLabel.setText(org.openide.util.NbBundle.getMessage(DataContentViewerHex.class, "DataContentViewerHex.totalPageLabel.text_1")); // NOI18N
 
@@ -232,8 +232,7 @@ public class DataContentViewerHex extends javax.swing.JPanel implements DataCont
         );
 
         jScrollPane1.setBackground(new java.awt.Color(255, 255, 255));
-        jScrollPane1.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        jScrollPane1.setPreferredSize(new java.awt.Dimension(610, 402));
+        jScrollPane1.setPreferredSize(new java.awt.Dimension(100, 402));
 
         outputViewPane.setEditable(false);
         outputViewPane.setFont(new java.awt.Font("Courier New", 0, 11)); // NOI18N
@@ -246,7 +245,7 @@ public class DataContentViewerHex extends javax.swing.JPanel implements DataCont
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(hexViewerPanel, javax.swing.GroupLayout.DEFAULT_SIZE, 701, Short.MAX_VALUE)
+            .addComponent(hexViewerPanel, javax.swing.GroupLayout.DEFAULT_SIZE, 610, Short.MAX_VALUE)
             .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
