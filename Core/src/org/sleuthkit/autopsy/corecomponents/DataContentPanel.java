@@ -74,7 +74,6 @@ public class DataContentPanel extends javax.swing.JPanel implements DataContent,
             }
             viewers.add(new UpdateWrapper(dcv));
             javax.swing.JScrollPane scrollTab = new javax.swing.JScrollPane(dcv.getComponent());
-            scrollTab.setVerticalScrollBarPolicy(javax.swing.JScrollPane.VERTICAL_SCROLLBAR_NEVER);
             jTabbedPane1.addTab(dcv.getTitle(), null,
                     scrollTab, dcv.getToolTip());
         }

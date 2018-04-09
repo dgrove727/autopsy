@@ -128,7 +128,8 @@ public class DataContentViewerString extends javax.swing.JPanel implements DataC
 
         jPanel1.setPreferredSize(new java.awt.Dimension(640, 424));
 
-        jScrollPane1.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        jScrollPane1.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
+        jScrollPane1.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
         jScrollPane1.setPreferredSize(new java.awt.Dimension(640, 402));
 
         outputViewPane.setEditable(false);
