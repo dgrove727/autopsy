@@ -90,6 +90,15 @@ public class DataContentViewerHex extends javax.swing.JPanel implements DataCont
         rightClickMenu = new javax.swing.JPopupMenu();
         copyMenuItem = new javax.swing.JMenuItem();
         selectAllMenuItem = new javax.swing.JMenuItem();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        outputViewPane = new JTextPane(){
+     public boolean getScrollableTracksViewportWidth() {
+     return (getSize().width < 400);
+ }};
+        this.outputViewPane.setBackground(new java.awt.Color(255, 255, 255)); // to make sure the background color is white
+        this.outputViewPane.requestFocusInWindow();
+        this.outputViewPane.setCursor(Cursor.getDefaultCursor());
+        jScrollPane2 = new javax.swing.JScrollPane();
         hexViewerPanel = new javax.swing.JPanel();
         totalPageLabel = new javax.swing.JLabel();
         ofLabel = new javax.swing.JLabel();
@@ -102,14 +111,6 @@ public class DataContentViewerHex extends javax.swing.JPanel implements DataCont
         goToPageLabel = new javax.swing.JLabel();
         goToOffsetLabel = new javax.swing.JLabel();
         goToOffsetTextField = new javax.swing.JTextField();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        outputViewPane = new JTextPane(){
-     public boolean getScrollableTracksViewportWidth() {
-     return (getSize().width < 400);
- }};
-        this.outputViewPane.setBackground(new java.awt.Color(255, 255, 255)); // to make sure the background color is white
-        this.outputViewPane.requestFocusInWindow();
-        this.outputViewPane.setCursor(Cursor.getDefaultCursor());
 
         copyMenuItem.setText(org.openide.util.NbBundle.getMessage(DataContentViewerHex.class, "DataContentViewerHex.copyMenuItem.text")); // NOI18N
         rightClickMenu.add(copyMenuItem);
@@ -119,7 +120,20 @@ public class DataContentViewerHex extends javax.swing.JPanel implements DataCont
 
         setPreferredSize(new java.awt.Dimension(300, 58));
 
-        hexViewerPanel.setPreferredSize(new java.awt.Dimension(610, 23));
+        jScrollPane1.setBackground(new java.awt.Color(255, 255, 255));
+        jScrollPane1.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
+        jScrollPane1.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        jScrollPane1.setPreferredSize(new java.awt.Dimension(300, 402));
+
+        outputViewPane.setEditable(false);
+        outputViewPane.setFont(new java.awt.Font("Courier New", 0, 11)); // NOI18N
+        outputViewPane.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        outputViewPane.setMinimumSize(new java.awt.Dimension(600, 20));
+        outputViewPane.setPreferredSize(new java.awt.Dimension(600, 400));
+        jScrollPane1.setViewportView(outputViewPane);
+
+        jScrollPane2.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        jScrollPane2.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
 
         totalPageLabel.setText(org.openide.util.NbBundle.getMessage(DataContentViewerHex.class, "DataContentViewerHex.totalPageLabel.text_1")); // NOI18N
 
@@ -210,7 +224,7 @@ public class DataContentViewerHex extends javax.swing.JPanel implements DataCont
                 .addComponent(goToOffsetLabel)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(goToOffsetTextField, javax.swing.GroupLayout.PREFERRED_SIZE, 79, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(32, Short.MAX_VALUE))
         );
         hexViewerPanelLayout.setVerticalGroup(
             hexViewerPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -231,31 +245,21 @@ public class DataContentViewerHex extends javax.swing.JPanel implements DataCont
                 .addGap(0, 0, 0))
         );
 
-        jScrollPane1.setBackground(new java.awt.Color(255, 255, 255));
-        jScrollPane1.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
-        jScrollPane1.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-        jScrollPane1.setPreferredSize(new java.awt.Dimension(300, 402));
-
-        outputViewPane.setEditable(false);
-        outputViewPane.setFont(new java.awt.Font("Courier New", 0, 11)); // NOI18N
-        outputViewPane.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        outputViewPane.setMinimumSize(new java.awt.Dimension(600, 20));
-        outputViewPane.setPreferredSize(new java.awt.Dimension(600, 400));
-        jScrollPane1.setViewportView(outputViewPane);
+        jScrollPane2.setViewportView(hexViewerPanel);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(hexViewerPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 600, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addComponent(hexViewerPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 29, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 27, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );
     }// </editor-fold>//GEN-END:initComponents
@@ -350,6 +354,7 @@ public class DataContentViewerHex extends javax.swing.JPanel implements DataCont
     private javax.swing.JTextField goToPageTextField;
     private javax.swing.JPanel hexViewerPanel;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JButton nextPageButton;
     private javax.swing.JLabel ofLabel;
     private javax.swing.JTextPane outputViewPane;
