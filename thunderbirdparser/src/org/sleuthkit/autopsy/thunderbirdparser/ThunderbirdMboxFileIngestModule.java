@@ -56,6 +56,7 @@ import org.sleuthkit.datamodel.AccountFileInstance;
 import org.sleuthkit.datamodel.BlackboardArtifact;
 import org.sleuthkit.datamodel.BlackboardAttribute;
 import org.sleuthkit.datamodel.BlackboardAttribute.ATTRIBUTE_TYPE;
+import org.sleuthkit.datamodel.DataSource;
 import org.sleuthkit.datamodel.DerivedFile;
 import org.sleuthkit.datamodel.Relationship;
 import org.sleuthkit.datamodel.SleuthkitCase;
@@ -624,37 +625,111 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
      */
     @Messages({"ThunderbirdMboxFileIngestModule.addContactArtifact.indexError=Failed to index the contact artifact for keyword search."})
     private BlackboardArtifact addContactArtifact(VCard vcard, AbstractFile abstractFile) throws NoCurrentCaseException {
+        Case currentCase = Case.getCurrentCaseThrows();
+        SleuthkitCase tskCase = currentCase.getSleuthkitCase();
+        
         List<BlackboardAttribute> attributes = new ArrayList<>();
+        List<AccountFileInstance> accountInstances = new ArrayList<>();
         
         addArtifactAttribute(vcard.getFormattedName().getValue(), ATTRIBUTE_TYPE.TSK_NAME_PERSON, attributes);
+        
         for (Telephone telephone : vcard.getTelephoneNumbers()) {
-            addArtifactAttribute(telephone.getText(), ATTRIBUTE_TYPE.TSK_PHONE_NUMBER, attributes);
+            String telephoneText = telephone.getText();
+            if (telephoneText == null || telephoneText.isEmpty()) {
+                continue;
+            }
+            
+            // Add phone number to collection for later creation of TSK_CONTACT.
+            addArtifactAttribute(telephoneText, ATTRIBUTE_TYPE.TSK_PHONE_NUMBER, attributes);
+            
+            // Add phone number as a TSK_ACCOUNT.
+            try {
+                AccountFileInstance phoneAccountInstance = tskCase.getCommunicationsManager().createAccountFileInstance(Account.Type.PHONE,
+                        telephoneText, EmailParserModuleFactory.getModuleName(), abstractFile);
+                accountInstances.add(phoneAccountInstance);
+            }
+            catch(TskCoreException ex) {
+                 logger.log(Level.WARNING, String.format(
+                         "Failed to create account for phone number '%s' (content='%s'; id=%d).",
+                         telephoneText, abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
+            }
         }
+        
         for (Email email : vcard.getEmails()) {
-            addArtifactAttribute(email.getValue(), ATTRIBUTE_TYPE.TSK_EMAIL, attributes);
+            String emailValue = email.getValue();
+            if (emailValue == null || emailValue.isEmpty()) {
+                continue;
+            }
+            
+            // Add phone number to collection for later creation of TSK_CONTACT.
+            addArtifactAttribute(emailValue, ATTRIBUTE_TYPE.TSK_EMAIL, attributes);
+            
+            // Add phone number as a TSK_ACCOUNT.
+            try {
+                AccountFileInstance emailAccountInstance = tskCase.getCommunicationsManager().createAccountFileInstance(Account.Type.EMAIL,
+                        emailValue, EmailParserModuleFactory.getModuleName(), abstractFile);
+                accountInstances.add(emailAccountInstance);
+            }
+            catch(TskCoreException ex) {
+                 logger.log(Level.WARNING, String.format(
+                         "Failed to create account for e-mail address '%s' (content='%s'; id=%d).",
+                         emailValue, abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
+            }
         }
+        
         for (Url url : vcard.getUrls()) {
             addArtifactAttribute(url.getValue(), ATTRIBUTE_TYPE.TSK_URL, attributes);
         }
+        
         for (Organization organization : vcard.getOrganizations()) {
             List<String> values = organization.getValues();
             if (values.isEmpty() == false) {
                 addArtifactAttribute(values.get(0), ATTRIBUTE_TYPE.TSK_ORGANIZATION, attributes);
             }
         }
+        
+        // Add 'DEVICE' TSK_ACCOUNT.
+        AccountFileInstance deviceAccountInstance = null;
+        String deviceId = null;
+        try {
+            long dataSourceObjId = abstractFile.getDataSourceObjectId();
+            DataSource dataSource = tskCase.getDataSource(dataSourceObjId);
+            deviceId = dataSource.getDeviceId();
+            deviceAccountInstance = tskCase.getCommunicationsManager().createAccountFileInstance(Account.Type.DEVICE,
+                    deviceId, EmailParserModuleFactory.getModuleName(), abstractFile);
+        }
+        catch (TskCoreException ex) {
+            logger.log(Level.WARNING, String.format(
+                    "Failed to create device account for '%s' (content='%s'; id=%d).",
+                    deviceId, abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
+        }
+        catch (TskDataException ex) {
+            logger.log(Level.WARNING, String.format(
+                    "Failed to get the data source from the case database (id=%d).",
+                    abstractFile.getId()), ex); //NON-NLS
+        }
    
         BlackboardArtifact artifact = null;
-        Case currentCase = Case.getCurrentCaseThrows();
-        SleuthkitCase tskCase = currentCase.getSleuthkitCase();
         org.sleuthkit.datamodel.Blackboard tskBlackboard = tskCase.getBlackboard();
         try {
             // Create artifact if it doesn't already exist.
             if (!tskBlackboard.artifactExists(abstractFile, BlackboardArtifact.ARTIFACT_TYPE.TSK_CONTACT, attributes)) {
                 artifact = abstractFile.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_CONTACT);
                 artifact.addAttributes(attributes);
-
+                
+                // Add account relationships
+                if (deviceAccountInstance != null) {
+                    try {
+                        currentCase.getSleuthkitCase().getCommunicationsManager().addRelationships(
+                                deviceAccountInstance, accountInstances, artifact, Relationship.Type.CONTACT, abstractFile.getCrtime());
+                    } catch (TskDataException ex) {
+                        logger.log(Level.SEVERE, String.format("Failed to create phone and e-mail account relationships (fileName='%s'; fileId=%d; accountId=%d).",
+                                abstractFile.getName(), abstractFile.getId(), deviceAccountInstance.getAccount().getAccountID()), ex); //NON-NLS
+                    }
+                }
+                
+                // Index the artifact for keyword search
                 try {
-                    // index the artifact for keyword search
                     blackboard.indexArtifact(artifact);
                 } catch (Blackboard.BlackboardException ex) {
                     logger.log(Level.SEVERE, "Unable to index blackboard artifact " + artifact.getArtifactID(), ex); //NON-NLS
@@ -664,6 +739,9 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
         } catch (TskCoreException ex) {
             logger.log(Level.SEVERE, String.format("Failed to create contact artifact for vCard file '%s' (id=%d).",
                     abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
+            logger.log(Level.WARNING, String.format(
+                    "Failed to get the data source from the case database (id=%d).",
+                    abstractFile.getId()), ex); //NON-NLS
         }
 
         return artifact;
