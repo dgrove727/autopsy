@@ -752,7 +752,7 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
             if (emailTypes.isEmpty()) {
                 addArtifactAttribute(email.getValue(), ATTRIBUTE_TYPE.TSK_EMAIL, attributes);
             } else {
-                for (EmailType type : email.getTypes()) {
+                for (EmailType type : emailTypes) {
                     BlackboardAttribute.ATTRIBUTE_TYPE attributeType;
 
                     switch (type.getValue().toLowerCase()) {
