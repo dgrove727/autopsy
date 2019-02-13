@@ -19,6 +19,8 @@
 package org.sleuthkit.autopsy.thunderbirdparser;
 
 import ezvcard.VCard;
+import ezvcard.parameter.EmailType;
+import ezvcard.parameter.TelephoneType;
 import ezvcard.property.Email;
 import ezvcard.property.Organization;
 import ezvcard.property.Telephone;
@@ -71,7 +73,30 @@ import org.sleuthkit.datamodel.TskException;
  * structure and metadata.
  */
 public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
-
+    private static final String VCARD_TEL_TYPE_HOME = "home";
+    private static final String VCARD_TEL_TYPE_WORK = "work";
+    private static final String VCARD_TEL_TYPE_TEXT = "text";
+    private static final String VCARD_TEL_TYPE_VOICE = "voice";
+    private static final String VCARD_TEL_TYPE_FAX = "fax";
+    private static final String VCARD_TEL_TYPE_CELL = "cell";
+    private static final String VCARD_TEL_TYPE_VIDEO = "video";
+    private static final String VCARD_TEL_TYPE_PAGER = "pager";
+    private static final String VCARD_TEL_TYPE_TEXTPHONE = "textphone";
+    private static final String VCARD_TEL_TYPE_MAIN_NUMBER = "main-number";
+    private static final String VCARD_TEL_TYPE_MSG = "msg";
+    private static final String VCARD_TEL_TYPE_PREF = "pref";
+    private static final String VCARD_TEL_TYPE_BBS = "bbs";
+    private static final String VCARD_TEL_TYPE_MODEM = "modem";
+    private static final String VCARD_TEL_TYPE_CAR = "car";
+    private static final String VCARD_TEL_TYPE_ISDN = "isdn";
+    private static final String VCARD_TEL_TYPE_PCS = "pcs";
+    
+    private static final String VCARD_EMAIL_TYPE_HOME = "home";
+    private static final String VCARD_EMAIL_TYPE_WORK = "work";
+    private static final String VCARD_EMAIL_TYPE_INTERNET = "internet";
+    private static final String VCARD_EMAIL_TYPE_X400 = "x400";
+    private static final String VCARD_EMAIL_TYPE_PREF = "pref";
+    
     private static final Logger logger = Logger.getLogger(ThunderbirdMboxFileIngestModule.class.getName());
     private IngestServices services = IngestServices.getInstance();
     private FileManager fileManager;
@@ -640,7 +665,68 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
             }
             
             // Add phone number to collection for later creation of TSK_CONTACT.
-            addArtifactAttribute(telephoneText, ATTRIBUTE_TYPE.TSK_PHONE_NUMBER, attributes);
+            List<TelephoneType> telephoneTypes = telephone.getTypes();
+            if (telephoneTypes.isEmpty()) {
+                addArtifactAttribute(telephone.getText(), ATTRIBUTE_TYPE.TSK_PHONE_NUMBER, attributes);
+            } else {
+                for (TelephoneType type : telephoneTypes) {
+                    BlackboardAttribute.ATTRIBUTE_TYPE attributeType;
+
+                    switch (type.getValue().toLowerCase()) {
+                        case VCARD_TEL_TYPE_HOME:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_HOME;
+                            break;
+                        case VCARD_TEL_TYPE_WORK:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_OFFICE;
+                            break;
+                        case VCARD_TEL_TYPE_TEXT:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_TEXT;
+                            break;
+                        case VCARD_TEL_TYPE_FAX:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_FAX;
+                            break;
+                        case VCARD_TEL_TYPE_CELL:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_MOBILE;
+                            break;
+                        case VCARD_TEL_TYPE_VIDEO:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_VIDEO;
+                            break;
+                        case VCARD_TEL_TYPE_PAGER:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_PAGER;
+                            break;
+                        case VCARD_TEL_TYPE_TEXTPHONE:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_TEXTPHONE;
+                            break;
+                        case VCARD_TEL_TYPE_MSG:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_VOICE_MESSAGING;
+                            break;
+                        case VCARD_TEL_TYPE_BBS:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_BBS;
+                            break;
+                        case VCARD_TEL_TYPE_MODEM:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_MODEM;
+                            break;
+                        case VCARD_TEL_TYPE_CAR:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_CAR;
+                            break;
+                        case VCARD_TEL_TYPE_ISDN:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_ISDN;
+                            break;
+                        case VCARD_TEL_TYPE_PCS:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_PCS;
+                            break;
+                        case VCARD_TEL_TYPE_MAIN_NUMBER:
+                        case VCARD_TEL_TYPE_PREF:
+                        case VCARD_TEL_TYPE_VOICE:
+                            // Fall-thru
+                        default:
+                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER;
+                            break;
+                    }
+
+                    addArtifactAttribute(telephone.getText(), attributeType, attributes);
+                }
+            }
             
             // Add phone number as a TSK_ACCOUNT.
             try {
@@ -662,7 +748,33 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
             }
             
             // Add phone number to collection for later creation of TSK_CONTACT.
-            addArtifactAttribute(emailValue, ATTRIBUTE_TYPE.TSK_EMAIL, attributes);
+            List<EmailType> emailTypes = email.getTypes();
+            if (emailTypes.isEmpty()) {
+                addArtifactAttribute(email.getValue(), ATTRIBUTE_TYPE.TSK_EMAIL, attributes);
+            } else {
+                for (EmailType type : email.getTypes()) {
+                    BlackboardAttribute.ATTRIBUTE_TYPE attributeType;
+
+                    switch (type.getValue().toLowerCase()) {
+                        case VCARD_EMAIL_TYPE_HOME:
+                            attributeType = ATTRIBUTE_TYPE.TSK_EMAIL_HOME;
+                            break;
+                        case VCARD_EMAIL_TYPE_WORK:
+                            attributeType = ATTRIBUTE_TYPE.TSK_EMAIL_OFFICE;
+                            break;
+                        case VCARD_EMAIL_TYPE_X400:
+                            attributeType = ATTRIBUTE_TYPE.TSK_EMAIL_X400;
+                            break;
+                        case VCARD_EMAIL_TYPE_INTERNET:
+                            // Fall-thru
+                        default:
+                            attributeType = ATTRIBUTE_TYPE.TSK_EMAIL;
+                            break;
+                    }
+
+                    addArtifactAttribute(email.getValue(), attributeType, attributes);
+                }
+            }
             
             // Add phone number as a TSK_ACCOUNT.
             try {
@@ -716,8 +828,10 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
             if (!tskBlackboard.artifactExists(abstractFile, BlackboardArtifact.ARTIFACT_TYPE.TSK_CONTACT, attributes)) {
                 artifact = abstractFile.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_CONTACT);
                 artifact.addAttributes(attributes);
+                List<BlackboardArtifact> blackboardArtifacts = new ArrayList<>();
+                blackboardArtifacts.add(artifact);
                 
-                // Add account relationships
+                // Add account relationships.
                 if (deviceAccountInstance != null) {
                     try {
                         currentCase.getSleuthkitCase().getCommunicationsManager().addRelationships(
@@ -728,13 +842,18 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
                     }
                 }
                 
-                // Index the artifact for keyword search
+                // Index the artifact for keyword search.
                 try {
                     blackboard.indexArtifact(artifact);
                 } catch (Blackboard.BlackboardException ex) {
                     logger.log(Level.SEVERE, "Unable to index blackboard artifact " + artifact.getArtifactID(), ex); //NON-NLS
                     MessageNotifyUtil.Notify.error(Bundle.ThunderbirdMboxFileIngestModule_addContactArtifact_indexError(), artifact.getDisplayName());
                 }
+                
+                // Fire event to notify UI of this new artifact.
+                IngestServices.getInstance().fireModuleDataEvent(new ModuleDataEvent(
+                        EmailParserModuleFactory.getModuleName(), BlackboardArtifact.ARTIFACT_TYPE.TSK_CONTACT,
+                        blackboardArtifacts));
             }
         } catch (TskCoreException ex) {
             logger.log(Level.SEVERE, String.format("Failed to create contact artifact for vCard file '%s' (id=%d).",
