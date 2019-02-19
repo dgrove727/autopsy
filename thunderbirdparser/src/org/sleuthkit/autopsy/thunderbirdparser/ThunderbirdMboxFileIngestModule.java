@@ -23,6 +23,7 @@ import ezvcard.parameter.EmailType;
 import ezvcard.parameter.TelephoneType;
 import ezvcard.property.Email;
 import ezvcard.property.Organization;
+import ezvcard.property.Photo;
 import ezvcard.property.Telephone;
 import ezvcard.property.Url;
 import java.io.File;
@@ -655,6 +656,14 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
         
         List<BlackboardAttribute> attributes = new ArrayList<>();
         List<AccountFileInstance> accountInstances = new ArrayList<>();
+        
+        //DLG: START CODE FOR 4717
+        for (Photo photo : vcard.getPhotos()) {
+            String type = photo.getType();
+            byte[] data = photo.getData();
+            System.out.println();
+        }
+        //DLG: END CODE FOR 4717
         
         addArtifactAttribute(vcard.getFormattedName().getValue(), ATTRIBUTE_TYPE.TSK_NAME_PERSON, attributes);
         
