@@ -27,7 +27,9 @@ import ezvcard.property.Photo;
 import ezvcard.property.Telephone;
 import ezvcard.property.Url;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -658,10 +660,73 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
         List<AccountFileInstance> accountInstances = new ArrayList<>();
         
         //DLG: START CODE FOR 4717
-        for (Photo photo : vcard.getPhotos()) {
-            String type = photo.getType();
-            byte[] data = photo.getData();
-            System.out.println();
+        String parentFileName = getUniqueName(abstractFile);
+        // Skip files that already have been extracted.
+        try {
+            String outputPath = getOutputFolderPath(parentFileName);
+            if (new File(outputPath).exists()) {
+                List<Photo> vcardPhotos = vcard.getPhotos();
+                List<AbstractFile> derivedFilesCreated = new ArrayList<>();
+                for (int i=0; i < vcardPhotos.size(); i++) {
+                    Photo photo = vcardPhotos.get(i);
+
+                    if (photo.getUrl() != null) {
+                        // Skip this photo since its data is not embedded.
+                        continue;
+                    }
+
+                    String type = photo.getType();
+                    if (type == null) {
+                        // Skip this photo since no type is defined.
+                        continue;
+                    }
+
+                    type = type.toLowerCase();
+                    if (type.startsWith("image/")) {
+                        type = type.substring(6);
+                    }
+                    String extension;
+                    switch(type) {
+                        case "bmp":
+                            extension = ".bmp";
+                            break;
+                        case "gif":
+                            extension = ".gif";
+                            break;
+                        case "jpeg":
+                            extension = ".jpg";
+                            break;
+                        case "png":
+                            extension = ".png";
+                            break;
+                        default:
+                            extension = "";
+                            break;
+                    }
+
+                    byte[] data = photo.getData();
+                    String extractedFileName = String.format("photo_%d%s", i, extension);
+                    String extractedFilePath = Paths.get(outputPath, extractedFileName).toString();
+                    try {
+                        writeExtractedImage(extractedFilePath, data);
+                        derivedFilesCreated.add(fileManager.addDerivedFile(extractedFileName, getFileRelativePath(parentFileName, extractedFileName), data.length,
+                                0, 0, 0, 0, //DLG: extractedImage.getCtime(), extractedImage.getCrtime(), extractedImage.getAtime(), extractedImage.getAtime(),
+                                true, abstractFile, null, EmailParserModuleFactory.getModuleName(), null, null, TskData.EncodingType.NONE));
+                    } catch (IOException | TskCoreException ex) {
+                        logger.log(Level.WARNING, String.format("Could not write image to '%s' (id=%d).", extractedFilePath, abstractFile.getId()), ex); //NON-NLS
+                    }
+                }
+                if (!derivedFilesCreated.isEmpty()) {
+                    services.fireModuleContentEvent(new ModuleContentEvent(abstractFile));
+                    context.addFilesToJob(derivedFilesCreated);
+                }
+            }
+            else {
+                logger.log(Level.INFO, String.format("Skipping photo extraction for file '%s' (id=%d), because it has already been processed.",
+                        abstractFile.getId()), abstractFile.getName()); //NON-NLS
+            }
+        } catch (SecurityException ex) {
+            logger.log(Level.WARNING, String.format("Could not create extraction folder for '%s' (id=%d).", parentFileName, abstractFile.getId()));
         }
         //DLG: END CODE FOR 4717
         
@@ -873,6 +938,62 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
         }
 
         return artifact;
+    }
+
+    /**
+     * Creates a unique name for a file by concatentating the file name and the
+     * file object id.
+     *
+     * @param file The file.
+     *
+     * @return The unique file name.
+     */
+    private String getUniqueName(AbstractFile file) {
+        return file.getName() + "_" + file.getId();
+    }
+
+    /**
+     * Gets path to the output folder for file extraction. If the path does not
+     * exist, it is created.
+     *
+     * @param parentFileName Name of the abstract file being processed.
+     *
+     * @return Path to the file extraction folder for a given abstract file.
+     */
+    private String getOutputFolderPath(String parentFileName) throws NoCurrentCaseException, SecurityException {
+        String outputFolderPath = getModuleOutputPath() + File.separator + parentFileName;
+        File outputFilePath = new File(outputFolderPath);
+        if (!outputFilePath.exists()) {
+            outputFilePath.mkdirs();
+        }
+        return outputFolderPath;
+    }
+
+    /**
+     * Gets the relative path to the file. The path is relative to the case
+     * folder.
+     *
+     * @param fileName Name of the the file for which the path is to be
+     *                 generated.
+     *
+     * @return
+     */
+    private String getFileRelativePath(String parentFileName, String fileName) throws NoCurrentCaseException {
+        // Used explicit FWD slashes to maintain DB consistency across operating systems.
+        return "/" + getRelModuleOutputPath() + "/" + parentFileName + "/" + fileName; //NON-NLS
+    }
+    
+    /**
+     * Writes image to the module output location.
+     *
+     * @param outputPath Path where images is written.
+     * @param data       Byte representation of the data to be written to the
+     *                   specified location.
+     */
+    private void writeExtractedImage(String outputPath, byte[] data) throws IOException {
+        File outputFile = new File(outputPath);
+        FileOutputStream outputStream = new FileOutputStream(outputFile);
+        outputStream.write(data);
     }
 
     private void addArtifactAttribute(String stringVal, ATTRIBUTE_TYPE attrType, Collection<BlackboardAttribute> bbattributes) {
