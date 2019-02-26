@@ -49,7 +49,8 @@ public class FileViewer extends javax.swing.JPanel implements DataContentViewer 
     private final FileTypeViewer[] KNOWN_VIEWERS = new FileTypeViewer[]{
         new SQLiteViewer(),
         new PListViewer(),
-        new MediaFileViewer()
+        new MediaFileViewer(),
+        new HtmlViewer()
     };
 
     private FileTypeViewer lastViewer;
