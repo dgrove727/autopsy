@@ -28,6 +28,7 @@ import ezvcard.property.Url;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +36,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
 import org.openide.util.NbBundle;
 import org.openide.util.NbBundle.Messages;
 import org.sleuthkit.autopsy.casemodule.Case;
@@ -73,36 +75,18 @@ import org.sleuthkit.datamodel.TskException;
  * structure and metadata.
  */
 public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
-    private static final String VCARD_TEL_TYPE_HOME = "home";
-    private static final String VCARD_TEL_TYPE_WORK = "work";
-    private static final String VCARD_TEL_TYPE_TEXT = "text";
-    private static final String VCARD_TEL_TYPE_VOICE = "voice";
-    private static final String VCARD_TEL_TYPE_FAX = "fax";
-    private static final String VCARD_TEL_TYPE_CELL = "cell";
-    private static final String VCARD_TEL_TYPE_VIDEO = "video";
-    private static final String VCARD_TEL_TYPE_PAGER = "pager";
-    private static final String VCARD_TEL_TYPE_TEXTPHONE = "textphone";
-    private static final String VCARD_TEL_TYPE_MAIN_NUMBER = "main-number";
-    private static final String VCARD_TEL_TYPE_MSG = "msg";
-    private static final String VCARD_TEL_TYPE_PREF = "pref";
-    private static final String VCARD_TEL_TYPE_BBS = "bbs";
-    private static final String VCARD_TEL_TYPE_MODEM = "modem";
-    private static final String VCARD_TEL_TYPE_CAR = "car";
-    private static final String VCARD_TEL_TYPE_ISDN = "isdn";
-    private static final String VCARD_TEL_TYPE_PCS = "pcs";
-    
-    private static final String VCARD_EMAIL_TYPE_HOME = "home";
-    private static final String VCARD_EMAIL_TYPE_WORK = "work";
-    private static final String VCARD_EMAIL_TYPE_INTERNET = "internet";
-    private static final String VCARD_EMAIL_TYPE_X400 = "x400";
-    private static final String VCARD_EMAIL_TYPE_PREF = "pref";
-    
     private static final Logger logger = Logger.getLogger(ThunderbirdMboxFileIngestModule.class.getName());
-    private IngestServices services = IngestServices.getInstance();
+    private final IngestServices services = IngestServices.getInstance();
     private FileManager fileManager;
     private IngestJobContext context;
     private Blackboard blackboard;
+    
+    private Case currentCase;
+    private SleuthkitCase tskCase;
 
+    /**
+     * Empty constructor.
+     */
     ThunderbirdMboxFileIngestModule() {
     }
 
@@ -111,6 +95,8 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
     public void startUp(IngestJobContext context) throws IngestModuleException {
         this.context = context;
         try {
+            currentCase = Case.getCurrentCaseThrows();
+            tskCase = currentCase.getSleuthkitCase();
             fileManager = Case.getCurrentCaseThrows().getServices().getFileManager();
         } catch (NoCurrentCaseException ex) {
             logger.log(Level.SEVERE, "Exception while getting open case.", ex);
@@ -213,13 +199,8 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
         PstParser.ParseResult result = parser.parse(file, abstractFile.getId());
 
         if (result == PstParser.ParseResult.OK) {
-            try {
-                // parse success: Process email and add artifacts
-                processEmails(parser.getResults(), abstractFile);
-            } catch (NoCurrentCaseException ex) {
-                logger.log(Level.SEVERE, "Exception while getting open case.", ex); //NON-NLS
-                return ProcessResult.ERROR;
-            }
+            // parse success: Process email and add artifacts
+            processEmails(parser.getResults(), abstractFile);
 
         } else if (result == PstParser.ParseResult.ENCRYPT) {
             // encrypted pst: Add encrypted file artifact
@@ -315,12 +296,7 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
 
         MboxParser parser = new MboxParser(services, emailFolder);
         List<EmailMessage> emails = parser.parse(file, abstractFile.getId());
-        try {
-            processEmails(emails, abstractFile);
-        } catch (NoCurrentCaseException ex) {
-            logger.log(Level.SEVERE, "Exception while getting open case.", ex); //NON-NLS
-            return ProcessResult.ERROR;
-        }
+        processEmails(emails, abstractFile);
 
         if (file.delete() == false) {
             logger.log(Level.INFO, "Failed to delete temp file: {0}", file.getName()); //NON-NLS
@@ -378,15 +354,10 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
             return ProcessResult.OK;
         }
         
-        VcardParser parser = new VcardParser();
-        VCard vcard;
-        
         try {
-            vcard = parser.parse(file);
+            VcardParser parser = new VcardParser();
+            VCard vcard = parser.parse(file);
             addContactArtifact(vcard, abstractFile);
-        } catch (NoCurrentCaseException ex) {
-            logger.log(Level.SEVERE, "Exception while getting open case.", ex); //NON-NLS
-            return ProcessResult.ERROR;
         } catch (IOException ex) {
             logger.log(Level.WARNING, String.format("Exception while parsing the file '%s' (id=%d).", file.getName(), abstractFile.getId()), ex); //NON-NLS
             return ProcessResult.OK;
@@ -448,9 +419,8 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
      *
      * @param emails
      * @param abstractFile
-     * @throws NoCurrentCaseException if there is no open case.
      */
-    private void processEmails(List<EmailMessage> emails, AbstractFile abstractFile) throws NoCurrentCaseException {
+    private void processEmails(List<EmailMessage> emails, AbstractFile abstractFile) {
         List<AbstractFile> derivedFiles = new ArrayList<>();
         
        
@@ -536,11 +506,9 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
      * @param abstractFile The associated file.
      * 
      * @return The generated e-mail message artifact.
-     * 
-     * @throws NoCurrentCaseException If there is no open case.
      */
     @Messages({"ThunderbirdMboxFileIngestModule.addArtifact.indexError.message=Failed to index email message detected artifact for keyword search."})
-    private BlackboardArtifact addEmailArtifact(EmailMessage email, AbstractFile abstractFile) throws NoCurrentCaseException {
+    private BlackboardArtifact addEmailArtifact(EmailMessage email, AbstractFile abstractFile) {
         BlackboardArtifact bbart = null;
         List<BlackboardAttribute> bbattributes = new ArrayList<>();
         String to = email.getRecipients();
@@ -562,19 +530,17 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
         
         AccountFileInstance senderAccountInstance = null;
 
-        Case openCase = Case.getCurrentCaseThrows();
-        
         if (senderAddressList.size() == 1) {
             senderAddress = senderAddressList.get(0);
             try {
-                senderAccountInstance = openCase.getSleuthkitCase().getCommunicationsManager().createAccountFileInstance(Account.Type.EMAIL, senderAddress, EmailParserModuleFactory.getModuleName(), abstractFile);
+                senderAccountInstance = currentCase.getSleuthkitCase().getCommunicationsManager().createAccountFileInstance(Account.Type.EMAIL, senderAddress, EmailParserModuleFactory.getModuleName(), abstractFile);
             }
             catch(TskCoreException ex) {
                  logger.log(Level.WARNING, "Failed to create account for email address  " + senderAddress, ex); //NON-NLS
             }
         }
         else {
-             logger.log(Level.WARNING, "Failed to find sender address, from  = "+ from); //NON-NLS
+             logger.log(Level.WARNING, "Failed to find sender address, from  = {0}", from); //NON-NLS
         }
         
         List<String> recipientAddresses = new ArrayList<>();
@@ -586,7 +552,7 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
         recipientAddresses.forEach((addr) -> {
             try {
                 AccountFileInstance recipientAccountInstance = 
-                openCase.getSleuthkitCase().getCommunicationsManager().createAccountFileInstance(Account.Type.EMAIL, addr,
+                currentCase.getSleuthkitCase().getCommunicationsManager().createAccountFileInstance(Account.Type.EMAIL, addr,
                         EmailParserModuleFactory.getModuleName(), abstractFile);
                 recipientAccountInstances.add(recipientAccountInstance);
             }
@@ -622,7 +588,7 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
             bbart.addAttributes(bbattributes);
 
             // Add account relationships
-            openCase.getSleuthkitCase().getCommunicationsManager().addRelationships(senderAccountInstance, recipientAccountInstances, bbart,Relationship.Type.MESSAGE, dateL);
+            currentCase.getSleuthkitCase().getCommunicationsManager().addRelationships(senderAccountInstance, recipientAccountInstances, bbart,Relationship.Type.MESSAGE, dateL);
             
             try {
                 // index the artifact for keyword search
@@ -645,148 +611,22 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
      * @param abstractFile The file associated with the data.
      * 
      * @return The generated contact artifact.
-     * 
-     * @throws NoCurrentCaseException If there is no open case.
      */
     @Messages({"ThunderbirdMboxFileIngestModule.addContactArtifact.indexError=Failed to index the contact artifact for keyword search."})
-    private BlackboardArtifact addContactArtifact(VCard vcard, AbstractFile abstractFile) throws NoCurrentCaseException {
-        Case currentCase = Case.getCurrentCaseThrows();
-        SleuthkitCase tskCase = currentCase.getSleuthkitCase();
-        
+    private BlackboardArtifact addContactArtifact(VCard vcard, AbstractFile abstractFile) {
         List<BlackboardAttribute> attributes = new ArrayList<>();
         List<AccountFileInstance> accountInstances = new ArrayList<>();
         
         addArtifactAttribute(vcard.getFormattedName().getValue(), ATTRIBUTE_TYPE.TSK_NAME_PERSON, attributes);
         
         for (Telephone telephone : vcard.getTelephoneNumbers()) {
-            String telephoneText = telephone.getText();
-            if (telephoneText == null || telephoneText.isEmpty()) {
-                continue;
-            }
-            
-            // Add phone number to collection for later creation of TSK_CONTACT.
-            List<TelephoneType> telephoneTypes = telephone.getTypes();
-            if (telephoneTypes.isEmpty()) {
-                addArtifactAttribute(telephone.getText(), ATTRIBUTE_TYPE.TSK_PHONE_NUMBER, attributes);
-            } else {
-                for (TelephoneType type : telephoneTypes) {
-                    BlackboardAttribute.ATTRIBUTE_TYPE attributeType;
-
-                    switch (type.getValue().toLowerCase()) {
-                        case VCARD_TEL_TYPE_HOME:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_HOME;
-                            break;
-                        case VCARD_TEL_TYPE_WORK:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_OFFICE;
-                            break;
-                        case VCARD_TEL_TYPE_TEXT:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_TEXT;
-                            break;
-                        case VCARD_TEL_TYPE_FAX:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_FAX;
-                            break;
-                        case VCARD_TEL_TYPE_CELL:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_MOBILE;
-                            break;
-                        case VCARD_TEL_TYPE_VIDEO:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_VIDEO;
-                            break;
-                        case VCARD_TEL_TYPE_PAGER:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_PAGER;
-                            break;
-                        case VCARD_TEL_TYPE_TEXTPHONE:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_TEXTPHONE;
-                            break;
-                        case VCARD_TEL_TYPE_MSG:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_VOICE_MESSAGING;
-                            break;
-                        case VCARD_TEL_TYPE_BBS:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_BBS;
-                            break;
-                        case VCARD_TEL_TYPE_MODEM:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_MODEM;
-                            break;
-                        case VCARD_TEL_TYPE_CAR:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_CAR;
-                            break;
-                        case VCARD_TEL_TYPE_ISDN:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_ISDN;
-                            break;
-                        case VCARD_TEL_TYPE_PCS:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_PCS;
-                            break;
-                        case VCARD_TEL_TYPE_MAIN_NUMBER:
-                        case VCARD_TEL_TYPE_PREF:
-                        case VCARD_TEL_TYPE_VOICE:
-                            // Fall-thru
-                        default:
-                            attributeType = ATTRIBUTE_TYPE.TSK_PHONE_NUMBER;
-                            break;
-                    }
-
-                    addArtifactAttribute(telephone.getText(), attributeType, attributes);
-                }
-            }
-            
-            // Add phone number as a TSK_ACCOUNT.
-            try {
-                AccountFileInstance phoneAccountInstance = tskCase.getCommunicationsManager().createAccountFileInstance(Account.Type.PHONE,
-                        telephoneText, EmailParserModuleFactory.getModuleName(), abstractFile);
-                accountInstances.add(phoneAccountInstance);
-            }
-            catch(TskCoreException ex) {
-                 logger.log(Level.WARNING, String.format(
-                         "Failed to create account for phone number '%s' (content='%s'; id=%d).",
-                         telephoneText, abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
-            }
+            addPhoneAttributes(telephone, abstractFile, attributes);
+            addPhoneAccountInstances(telephone, abstractFile, accountInstances);
         }
         
         for (Email email : vcard.getEmails()) {
-            String emailValue = email.getValue();
-            if (emailValue == null || emailValue.isEmpty()) {
-                continue;
-            }
-            
-            // Add phone number to collection for later creation of TSK_CONTACT.
-            List<EmailType> emailTypes = email.getTypes();
-            if (emailTypes.isEmpty()) {
-                addArtifactAttribute(email.getValue(), ATTRIBUTE_TYPE.TSK_EMAIL, attributes);
-            } else {
-                for (EmailType type : emailTypes) {
-                    BlackboardAttribute.ATTRIBUTE_TYPE attributeType;
-
-                    switch (type.getValue().toLowerCase()) {
-                        case VCARD_EMAIL_TYPE_HOME:
-                            attributeType = ATTRIBUTE_TYPE.TSK_EMAIL_HOME;
-                            break;
-                        case VCARD_EMAIL_TYPE_WORK:
-                            attributeType = ATTRIBUTE_TYPE.TSK_EMAIL_OFFICE;
-                            break;
-                        case VCARD_EMAIL_TYPE_X400:
-                            attributeType = ATTRIBUTE_TYPE.TSK_EMAIL_X400;
-                            break;
-                        case VCARD_EMAIL_TYPE_INTERNET:
-                            // Fall-thru
-                        default:
-                            attributeType = ATTRIBUTE_TYPE.TSK_EMAIL;
-                            break;
-                    }
-
-                    addArtifactAttribute(email.getValue(), attributeType, attributes);
-                }
-            }
-            
-            // Add phone number as a TSK_ACCOUNT.
-            try {
-                AccountFileInstance emailAccountInstance = tskCase.getCommunicationsManager().createAccountFileInstance(Account.Type.EMAIL,
-                        emailValue, EmailParserModuleFactory.getModuleName(), abstractFile);
-                accountInstances.add(emailAccountInstance);
-            }
-            catch(TskCoreException ex) {
-                 logger.log(Level.WARNING, String.format(
-                         "Failed to create account for e-mail address '%s' (content='%s'; id=%d).",
-                         emailValue, abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
-            }
+            addEmailAttributes(email, abstractFile, attributes);
+            addEmailAccountInstances(email, abstractFile, accountInstances);
         }
         
         for (Url url : vcard.getUrls()) {
@@ -800,26 +640,7 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
             }
         }
         
-        // Add 'DEVICE' TSK_ACCOUNT.
-        AccountFileInstance deviceAccountInstance = null;
-        String deviceId = null;
-        try {
-            long dataSourceObjId = abstractFile.getDataSourceObjectId();
-            DataSource dataSource = tskCase.getDataSource(dataSourceObjId);
-            deviceId = dataSource.getDeviceId();
-            deviceAccountInstance = tskCase.getCommunicationsManager().createAccountFileInstance(Account.Type.DEVICE,
-                    deviceId, EmailParserModuleFactory.getModuleName(), abstractFile);
-        }
-        catch (TskCoreException ex) {
-            logger.log(Level.WARNING, String.format(
-                    "Failed to create device account for '%s' (content='%s'; id=%d).",
-                    deviceId, abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
-        }
-        catch (TskDataException ex) {
-            logger.log(Level.WARNING, String.format(
-                    "Failed to get the data source from the case database (id=%d).",
-                    abstractFile.getId()), ex); //NON-NLS
-        }
+        AccountFileInstance deviceAccountInstance = addDeviceAccountInstance(abstractFile);
    
         BlackboardArtifact artifact = null;
         org.sleuthkit.datamodel.Blackboard tskBlackboard = tskCase.getBlackboard();
@@ -858,30 +679,252 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
         } catch (TskCoreException ex) {
             logger.log(Level.SEVERE, String.format("Failed to create contact artifact for vCard file '%s' (id=%d).",
                     abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
-            logger.log(Level.WARNING, String.format(
-                    "Failed to get the data source from the case database (id=%d).",
-                    abstractFile.getId()), ex); //NON-NLS
         }
 
         return artifact;
     }
+    
+    /**
+     * Generate phone attributes for a given VCard Telephone object.
+     * 
+     * @param telephone    The VCard Telephone from which to generate attributes.
+     * @param abstractFile The VCard file.
+     * @param attributes   The Collection to which generated attributes will be
+     *                     added.
+     */
+    private void addPhoneAttributes(Telephone telephone, AbstractFile abstractFile, Collection<BlackboardAttribute> attributes) {
+        String telephoneText = telephone.getText();
+        if (telephoneText == null || telephoneText.isEmpty()) {
+            return;
+        }
 
+        // Add phone number to collection for later creation of TSK_CONTACT.
+        List<TelephoneType> telephoneTypes = telephone.getTypes();
+        if (telephoneTypes.isEmpty()) {
+            addArtifactAttribute(telephone.getText(), ATTRIBUTE_TYPE.TSK_PHONE_NUMBER, attributes);
+        } else {
+            for (TelephoneType type : telephoneTypes) {
+                /*
+                 * Unfortunately, if the types are lower-case, they don't
+                 * get separated correctly into individual TelephoneTypes by
+                 * ez-vcard. Therefore, we must read them manually
+                 * ourselves.
+                 */
+                List<String> splitTelephoneTypes = Arrays.asList(
+                        type.getValue().toUpperCase().replaceAll("\\s+","").split(","));
+
+                for (String splitType : splitTelephoneTypes) {
+                    String attributeTypeName = "TSK_PHONE_" + splitType;
+                    try {
+                        BlackboardAttribute.Type attributeType = tskCase.getAttributeType(attributeTypeName);
+                        if (attributeType == null) {
+                            // Add this attribute type to the case database.
+                            attributeType = tskCase.addArtifactAttributeType(attributeTypeName,
+                                    BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING,
+                                    String.format("Phone (%s)", StringUtils.capitalize(splitType.toLowerCase())));
+                        }
+                        addArtifactAttribute(telephone.getText(), attributeType, attributes);
+                    } catch (TskCoreException ex) {
+                        logger.log(Level.SEVERE, String.format("Unable to retrieve attribute type '%s' for file '%s' (id=%d).", attributeTypeName, abstractFile.getName(), abstractFile.getId()), ex);
+                    } catch (TskDataException ex) {
+                        logger.log(Level.SEVERE, String.format("Unable to add custom attribute type '%s' for file '%s' (id=%d).", attributeTypeName, abstractFile.getName(), abstractFile.getId()), ex);
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Generate e-mail attributes for a given VCard Email object.
+     * 
+     * @param email        The VCard Email from which to generate attributes.
+     * @param abstractFile The VCard file.
+     * @param attributes   The Collection to which generated attributes will be
+     *                     added.
+     */
+    private void addEmailAttributes(Email email, AbstractFile abstractFile, Collection<BlackboardAttribute> attributes) {
+        String emailValue = email.getValue();
+        if (emailValue == null || emailValue.isEmpty()) {
+            return;
+        }
+
+        // Add phone number to collection for later creation of TSK_CONTACT.
+        List<EmailType> emailTypes = email.getTypes();
+        if (emailTypes.isEmpty()) {
+            addArtifactAttribute(email.getValue(), ATTRIBUTE_TYPE.TSK_EMAIL, attributes);
+        } else {
+            for (EmailType type : emailTypes) {
+                /*
+                 * Unfortunately, if the types are lower-case, they don't
+                 * get separated correctly into individual EmailTypes by
+                 * ez-vcard. Therefore, we must read them manually
+                 * ourselves.
+                 */
+                List<String> splitEmailTypes = Arrays.asList(
+                        type.getValue().toUpperCase().replaceAll("\\s+","").split(","));
+
+                for (String splitType : splitEmailTypes) {
+                    String attributeTypeName = "TSK_EMAIL_" + splitType;
+                    try {
+                        BlackboardAttribute.Type attributeType = tskCase.getAttributeType(attributeTypeName);
+                        if (attributeType == null) {
+                            // Add this attribute type to the case database.
+                            attributeType = tskCase.addArtifactAttributeType(attributeTypeName, 
+                                    BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, 
+                                    String.format("Email (%s)", StringUtils.capitalize(splitType.toLowerCase())));
+                        }
+                        addArtifactAttribute(email.getValue(), attributeType, attributes);
+                    } catch (TskCoreException ex) {
+                        logger.log(Level.SEVERE, String.format("Unable to retrieve attribute type '%s' for file '%s' (id=%d).", attributeTypeName, abstractFile.getName(), abstractFile.getId()), ex);
+                    } catch (TskDataException ex) {
+                        logger.log(Level.SEVERE, String.format("Unable to add custom attribute type '%s' for file '%s' (id=%d).", attributeTypeName, abstractFile.getName(), abstractFile.getId()), ex);
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Generate account instances for a given VCard Telephone object.
+     * 
+     * @param telephone        The VCard Telephone from which to generate
+     *                         account instances.
+     * @param abstractFile     The VCard file.
+     * @param accountInstances The Collection to which generated account
+     *                         instances will be added.
+     */
+    private void addPhoneAccountInstances(Telephone telephone, AbstractFile abstractFile, Collection<AccountFileInstance> accountInstances) {
+        String telephoneText = telephone.getText();
+        if (telephoneText == null || telephoneText.isEmpty()) {
+            return;
+        }
+
+        // Add phone number as a TSK_ACCOUNT.
+        try {
+            AccountFileInstance phoneAccountInstance = tskCase.getCommunicationsManager().createAccountFileInstance(Account.Type.PHONE,
+                    telephoneText, EmailParserModuleFactory.getModuleName(), abstractFile);
+            accountInstances.add(phoneAccountInstance);
+        }
+        catch(TskCoreException ex) {
+             logger.log(Level.WARNING, String.format(
+                     "Failed to create account for phone number '%s' (content='%s'; id=%d).",
+                     telephoneText, abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
+        }
+    }
+    
+    /**
+     * Generate account instances for a given VCard Email object.
+     * 
+     * @param telephone        The VCard Email from which to generate account
+     *                         instances.
+     * @param abstractFile     The VCard file.
+     * @param accountInstances The Collection to which generated account
+     *                         instances will be added.
+     */
+    private void addEmailAccountInstances(Email email, AbstractFile abstractFile, Collection<AccountFileInstance> accountInstances) {
+        String emailValue = email.getValue();
+        if (emailValue == null || emailValue.isEmpty()) {
+            return;
+        }
+
+        // Add e-mail as a TSK_ACCOUNT.
+        try {
+            AccountFileInstance emailAccountInstance = tskCase.getCommunicationsManager().createAccountFileInstance(Account.Type.EMAIL,
+                    emailValue, EmailParserModuleFactory.getModuleName(), abstractFile);
+            accountInstances.add(emailAccountInstance);
+        }
+        catch(TskCoreException ex) {
+             logger.log(Level.WARNING, String.format(
+                     "Failed to create account for e-mail address '%s' (content='%s'; id=%d).",
+                     emailValue, abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
+        }
+    }
+    
+    /**
+     * Generate device account instance for a given file.
+     * 
+     * @param abstractFile The VCard file.
+     * 
+     * @return The generated device account instance.
+     */
+    private AccountFileInstance addDeviceAccountInstance(AbstractFile abstractFile) {
+        // Add 'DEVICE' TSK_ACCOUNT.
+        AccountFileInstance deviceAccountInstance = null;
+        String deviceId = null;
+        try {
+            long dataSourceObjId = abstractFile.getDataSourceObjectId();
+            DataSource dataSource = tskCase.getDataSource(dataSourceObjId);
+            deviceId = dataSource.getDeviceId();
+            deviceAccountInstance = tskCase.getCommunicationsManager().createAccountFileInstance(Account.Type.DEVICE,
+                    deviceId, EmailParserModuleFactory.getModuleName(), abstractFile);
+        }
+        catch (TskCoreException ex) {
+            logger.log(Level.WARNING, String.format(
+                    "Failed to create device account for '%s' (content='%s'; id=%d).",
+                    deviceId, abstractFile.getName(), abstractFile.getId()), ex); //NON-NLS
+        }
+        catch (TskDataException ex) {
+            logger.log(Level.WARNING, String.format(
+                    "Failed to get the data source from the case database (id=%d).",
+                    abstractFile.getId()), ex); //NON-NLS
+        }
+        
+        return deviceAccountInstance;
+    }
+
+    /**
+     * Add an attribute of a specified type to a supplied Collection.
+     * 
+     * @param stringVal    The attribute value.
+     * @param attrType     The type of attribute to be added.
+     * @param bbattributes The Collection to which the attribute will be added.
+     */
     private void addArtifactAttribute(String stringVal, ATTRIBUTE_TYPE attrType, Collection<BlackboardAttribute> bbattributes) {
         if (stringVal.isEmpty() == false) {
             bbattributes.add(new BlackboardAttribute(attrType, EmailParserModuleFactory.getModuleName(), stringVal));
         }
     }
+    /**
+     * Add an attribute of a specified type to a supplied Collection.
+     * 
+     * @param stringVal      The attribute value.
+     * @param attrType     The type of attribute to be added.
+     * @param bbattributes The Collection to which the attribute will be added.
+     */
+    private void addArtifactAttribute(String stringVal, BlackboardAttribute.Type attrType, Collection<BlackboardAttribute> bbattributes) {
+        if (stringVal.isEmpty() == false) {
+            bbattributes.add(new BlackboardAttribute(attrType, EmailParserModuleFactory.getModuleName(), stringVal));
+        }
+    }
+    /**
+     * Add an attribute of a specified type to a supplied Collection.
+     * 
+     * @param longVal      The attribute value.
+     * @param attrType     The type of attribute to be added.
+     * @param bbattributes The Collection to which the attribute will be added.
+     */
     private void addArtifactAttribute(long longVal, ATTRIBUTE_TYPE attrType, Collection<BlackboardAttribute> bbattributes) {
         if (longVal > 0) {
             bbattributes.add(new BlackboardAttribute(attrType, EmailParserModuleFactory.getModuleName(), longVal));
         }
     }
     
+    /**
+     * Post an error message for the user.
+     * 
+     * @param subj    The error subject.
+     * @param details The error details.
+     */
     void postErrorMessage(String subj, String details) {
         IngestMessage ingestMessage = IngestMessage.createErrorMessage(EmailParserModuleFactory.getModuleVersion(), subj, details);
         services.postMessage(ingestMessage);
     }
 
+    /**
+     * Get the IngestServices object.
+     * 
+     * @return The IngestServices object.
+     */
     IngestServices getServices() {
         return services;
     }
