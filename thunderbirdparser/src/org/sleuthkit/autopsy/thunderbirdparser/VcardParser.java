@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  *
- * Copyright 2011-2019 Basis Technology Corp.
+ * Copyright 2019 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -62,7 +62,6 @@ final class VcardParser {
         } catch (TskException ex) {
             logger.log(Level.WARNING, String.format("Exception while detecting if the file '%s' (id=%d) is a vCard file.",
                     content.getName(), content.getId())); //NON-NLS
-            return false;
         }
         
         return false;

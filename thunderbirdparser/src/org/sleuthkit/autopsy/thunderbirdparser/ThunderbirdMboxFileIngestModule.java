@@ -23,15 +23,20 @@ import ezvcard.parameter.EmailType;
 import ezvcard.parameter.TelephoneType;
 import ezvcard.property.Email;
 import ezvcard.property.Organization;
+import ezvcard.property.Photo;
 import ezvcard.property.Telephone;
 import ezvcard.property.Url;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
@@ -83,6 +88,19 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
     
     private Case currentCase;
     private SleuthkitCase tskCase;
+    
+    private static final String PHOTO_TYPE_BMP = "bmp";
+    private static final String PHOTO_TYPE_GIF = "gif";
+    private static final String PHOTO_TYPE_JPEG = "jpeg";
+    private static final String PHOTO_TYPE_PNG = "png";
+    private static final Map<String, String> photoTypeExtensions;
+    static {
+        photoTypeExtensions = new HashMap<>();
+        photoTypeExtensions.put(PHOTO_TYPE_BMP, ".bmp");
+        photoTypeExtensions.put(PHOTO_TYPE_GIF, ".gif");
+        photoTypeExtensions.put(PHOTO_TYPE_JPEG, ".jpg");
+        photoTypeExtensions.put(PHOTO_TYPE_PNG, ".png");
+    }
 
     /**
      * Empty constructor.
@@ -358,7 +376,7 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
             VcardParser parser = new VcardParser();
             VCard vcard = parser.parse(file);
             addContactArtifact(vcard, abstractFile);
-        } catch (IOException ex) {
+        } catch (IOException | NoCurrentCaseException ex) {
             logger.log(Level.WARNING, String.format("Exception while parsing the file '%s' (id=%d).", file.getName(), abstractFile.getId()), ex); //NON-NLS
             return ProcessResult.OK;
         }
@@ -388,8 +406,9 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
 
     /**
      * Get a module output folder.
-     *
+     * 
      * @throws NoCurrentCaseException if there is no open case.
+     *
      * @return the module output folder
      */
     static String getModuleOutputPath() throws NoCurrentCaseException {
@@ -502,7 +521,7 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
     /**
      * Add a blackboard artifact for the given e-mail message.
      *
-     * @param email The e-mail message.
+     * @param email        The e-mail message.
      * @param abstractFile The associated file.
      * 
      * @return The generated e-mail message artifact.
@@ -607,15 +626,19 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
     /**
      * Add a blackboard artifact for the given contact.
      *
-     * @param vcard The vCard that contains the contact information.
+     * @param vcard        The VCard that contains the contact information.
      * @param abstractFile The file associated with the data.
+     * 
+     * @throws NoCurrentCaseException if there is no open case.
      * 
      * @return The generated contact artifact.
      */
     @Messages({"ThunderbirdMboxFileIngestModule.addContactArtifact.indexError=Failed to index the contact artifact for keyword search."})
-    private BlackboardArtifact addContactArtifact(VCard vcard, AbstractFile abstractFile) {
+    private BlackboardArtifact addContactArtifact(VCard vcard, AbstractFile abstractFile) throws NoCurrentCaseException {
         List<BlackboardAttribute> attributes = new ArrayList<>();
         List<AccountFileInstance> accountInstances = new ArrayList<>();
+        
+        extractPhotos(vcard, abstractFile);
         
         addArtifactAttribute(vcard.getFormattedName().getValue(), ATTRIBUTE_TYPE.TSK_NAME_PERSON, attributes);
         
@@ -682,6 +705,126 @@ public final class ThunderbirdMboxFileIngestModule implements FileIngestModule {
         }
 
         return artifact;
+    }
+    
+    /**
+     * Extract photos from a given VCard and add them as derived files.
+     * 
+     * @param vcard        The VCard from which to extract the photos.
+     * @param abstractFile The file associated with the data.
+     * 
+     * @throws NoCurrentCaseException if there is no open case.
+     */
+    private void extractPhotos(VCard vcard, AbstractFile abstractFile) throws NoCurrentCaseException {
+        String parentFileName = getUniqueName(abstractFile);
+        // Skip files that already have been extracted.
+        try {
+            String outputPath = getOutputFolderPath(parentFileName);
+            if (new File(outputPath).exists()) {
+                List<Photo> vcardPhotos = vcard.getPhotos();
+                List<AbstractFile> derivedFilesCreated = new ArrayList<>();
+                for (int i=0; i < vcardPhotos.size(); i++) {
+                    Photo photo = vcardPhotos.get(i);
+
+                    if (photo.getUrl() != null) {
+                        // Skip this photo since its data is not embedded.
+                        continue;
+                    }
+
+                     String type = photo.getType();
+                    if (type == null) {
+                        // Skip this photo since no type is defined.
+                        continue;
+                    }
+
+                    type = type.toLowerCase();
+                    if (type.startsWith("image/")) {
+                        type = type.substring(6);
+                    }
+                    String extension = photoTypeExtensions.get(type);
+
+                    byte[] data = photo.getData();
+                    String extractedFileName = String.format("photo_%d%s", i, extension == null ? "" : extension);
+                    String extractedFilePath = Paths.get(outputPath, extractedFileName).toString();
+                    try {
+                        writeExtractedImage(extractedFilePath, data);
+                        derivedFilesCreated.add(fileManager.addDerivedFile(extractedFileName, getFileRelativePath(parentFileName, extractedFileName), data.length,
+                                abstractFile.getCtime(), abstractFile.getCrtime(), abstractFile.getAtime(), abstractFile.getAtime(),
+                                true, abstractFile, null, EmailParserModuleFactory.getModuleName(), null, null, TskData.EncodingType.NONE));
+                    } catch (IOException | TskCoreException ex) {
+                        logger.log(Level.WARNING, String.format("Could not write image to '%s' (id=%d).", extractedFilePath, abstractFile.getId()), ex); //NON-NLS
+                    }
+                }
+                if (!derivedFilesCreated.isEmpty()) {
+                    services.fireModuleContentEvent(new ModuleContentEvent(abstractFile));
+                    context.addFilesToJob(derivedFilesCreated);
+                }
+            }
+            else {
+                logger.log(Level.INFO, String.format("Skipping photo extraction for file '%s' (id=%d), because it has already been processed.",
+                        abstractFile.getId()), abstractFile.getName()); //NON-NLS
+            }
+        } catch (SecurityException ex) {
+            logger.log(Level.WARNING, String.format("Could not create extraction folder for '%s' (id=%d).", parentFileName, abstractFile.getId()));
+        }
+    }
+    
+    /**
+     * Writes image to the module output location.
+     *
+     * @param outputPath Path where images is written.
+     * @param data       Byte representation of the data to be written to the
+     *                   specified location.
+     */
+    private void writeExtractedImage(String outputPath, byte[] data) throws IOException {
+        File outputFile = new File(outputPath);
+        FileOutputStream outputStream = new FileOutputStream(outputFile);
+        outputStream.write(data);
+    }
+    
+    /**
+     * Creates a unique name for a file by concatentating the file name and the
+     * file object id.
+     *
+     * @param file The file.
+     *
+     * @return The unique file name.
+     */
+    private String getUniqueName(AbstractFile file) {
+        return file.getName() + "_" + file.getId();
+    }
+    
+    /**
+     * Gets the relative path to the file. The path is relative to the case
+     * folder.
+     *
+     * @param fileName Name of the the file for which the path is to be
+     *                 generated.
+     *
+     * @return The relative file path.
+     */
+    private String getFileRelativePath(String parentFileName, String fileName) throws NoCurrentCaseException {
+        // Used explicit FWD slashes to maintain DB consistency across operating systems.
+        return "/" + getRelModuleOutputPath() + "/" + parentFileName + "/" + fileName; //NON-NLS
+    }
+    
+    /**
+     * Gets path to the output folder for file extraction. If the path does not
+     * exist, it is created.
+     *
+     * @param parentFileName Name of the abstract file being processed.
+     * 
+     * @throws NoCurrentCaseException if there is no open case.
+     *
+     * @return Path to the file extraction folder for a given abstract file.
+     */
+    private String getOutputFolderPath(String parentFileName) throws NoCurrentCaseException {
+        String outputFolderPath = getModuleOutputPath() + File.separator + parentFileName;
+        File outputFilePath = new File(outputFolderPath);
+        if (!outputFilePath.exists()) {
+            outputFilePath.mkdirs();
+        }
+        return outputFolderPath;
     }
     
     /**
